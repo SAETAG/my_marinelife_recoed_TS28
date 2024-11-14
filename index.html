@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Marinelife Record</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="title">
+        <h1>🐠My Marinelife Record🐡</h1>
+    </div>
+
+    <div class="input_area">
+        <h1>海洋生物のログ付け</h1>
+        <div class="date">
+            <label>ダイビングした日</label>
+            <input type="date" id="date">
+        </div>
+
+        <div class="name">
+            <label>出会った海洋生物の名前</label>
+            <input type="text" id="name">
+        </div>
+
+        <div class="local">
+            <label>ダイビングポイント</label>
+            <input type="text" id="local">
+        </div>
+
+        <div class="memo">
+            <label>どんな色や形？どこにいた？など📝</label>
+            <input type="text" id="memo">
+        </div>
+
+        <div class="photo">
+            <label>写真</label>
+            <input type="file" id="photo">
+            <img id="preview" alt="画像プレビュー" style="display: none; max-width: 200px;">
+        </div>
+
+        <button id="save">ログ記録を保存</button>
+    </div>
+
+    <div class="calendar_area">
+        <h1>海洋生物の記録カレンダー</h1>
+        <div id="calendar"></div>
+        <button id="clearAll">全データ削除</button>
+    </div>
+
+    <div class="display_area">
+        <h1>出会った海洋生物達</h1>
+        <div id="output"></div>
+    </div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script>
+      $(document).ready(function () {
+     // ページが読み込まれたら以下の関数を実行しますよ
+            
+            generateCalendar();
+            // カレンダー関数をページ読み込み時に呼び出します
+
+            $('#photo').on('change', function () { 
+            // photo id の画像を選択したらチェンジが起こる
+                const file = this.files[0];
+                // 選択された最初の画像を（0）fileという箱に入れた
+                if (file) {
+                // file（最初の画像）が選択されていたら以下の処理が実行
+                    const reader = new FileReader();
+                    // ファイルを読み取れる形に変える
+                    reader.onload = function (e) {
+                        $('#preview').attr('src', e.target.result).show();
+                    };
+                    // 読み込んだ画像を表示
+                    reader.readAsDataURL(file);
+                    // ファイルが読み込まれる
+                }
+            });
+            // 画像ファイルを選択したらプレビューを表示する処理
+
+            $('#save').on('click', function () {
+            // save ボタン押したら以下を実行
+                const fishdata = {
+                    date: $('#date').val(),
+                    name: $('#name').val(),
+                    local: $('#local').val(),
+                    memo: $('#memo').val(),
+                    photo: $('#preview').attr('src')
+                    // 画像プレビュー（#preview）のsrc（画像のURL）を取り出して、photoとして保存
+                };
+
+                let fishRecords = JSON.parse(localStorage.getItem('fishRecords')) || [];
+                //    ？
+                fishRecords.push(fishdata);
+                // fishRecordsに新しいデータを追加する
+                localStorage.setItem('fishRecords', JSON.stringify(fishRecords));
+                // fishRecordsのデータをJSON形式に変換してローカルストレージに追加
+
+
+                alert("データが保存されました");
+                $('#date, #name, #local, #memo').val('');
+                $('#photo').val('');
+                $('#preview').attr('src', '').hide();
+
+                generateCalendar();
+            });
+
+            $('#clearAll').on('click', function () {
+                if (confirm("すべてのデータを削除してもよろしいですか？")) {
+                    localStorage.removeItem('fishRecords');
+                    alert("すべてのデータが削除されました");
+                    generateCalendar();
+                    $('#output').html('');
+                }
+            });
+
+            function generateCalendar(year = new Date().getFullYear(), month = new Date().getMonth()) {
+                const fishRecords = JSON.parse(localStorage.getItem('fishRecords')) || [];
+                const recordDates = fishRecords.map(record => record.date);
+                $('#calendar').html('');
+
+                $('#calendar').append(`
+            <div class="calendar_header">
+                <button id="prevMonth">◀</button>
+                <span id="calendarTitle">${year}年${month + 1}月</span>
+                <button id="nextMonth">▶</button>
+            </div>
+        `);
+
+                const firstDay = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                let day = 1;
+                let calendarHTML = '';
+
+                for (let week = 0; day <= daysInMonth; week++) {
+                    calendarHTML += `<div class="calendar_row">`;
+
+                    for (let weekday = 0; weekday < 7; weekday++) {
+                        if (week === 0 && weekday < firstDay) {
+                            calendarHTML += `<div class="calendar_day empty"></div>`;
+                        } else if (day <= daysInMonth) {
+                            const dayString = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+                            const isRecorded = recordDates.includes(dayString);
+
+                            calendarHTML += `
+                        <div class="calendar_day">
+                            ${day}
+                            ${isRecorded ? `<span class="fish_icon" data-date="${dayString}">🐟</span>` : ''}
+                        </div>
+                    `;
+                            day++;
+                        } else {
+                            calendarHTML += `<div class="calendar_day empty"></div>`;
+                        }
+                    }
+
+                    calendarHTML += `</div>`;
+                }
+
+                $('#calendar').append(calendarHTML);
+
+                // 魚アイコンのクリックイベントでその日の詳細データを表示
+                $('.fish_icon').on('click', function () {
+                    const selectedDate = $(this).data('date');
+                    displayData(selectedDate);
+                });
+
+                // 月変更ボタンのイベント
+                $('#prevMonth').on('click', function () {
+                    const newMonth = month === 0 ? 11 : month - 1;
+                    const newYear = month === 0 ? year - 1 : year;
+                    generateCalendar(newYear, newMonth);
+                });
+
+                $('#nextMonth').on('click', function () {
+                    const newMonth = month === 11 ? 0 : month + 1;
+                    const newYear = month === 11 ? year + 1 : year;
+                    generateCalendar(newYear, newMonth);
+                });
+            }
+
+            function displayData(date) {
+                const fishRecords = JSON.parse(localStorage.getItem('fishRecords')) || [];
+                const selectedRecords = fishRecords.filter(record => record.date === date);
+                $('#output').html('');
+
+                selectedRecords.forEach((data, index) => {
+                    $('#output').append(`
+                <div class="record">
+                    <p>${data.date}に ${data.name} と ${data.local}で会った！</p>
+                    <p>メモ：${data.memo}</p>
+                    <img src="${data.photo}" alt="保存した画像" style="max-width: 200px;">
+                    <button class="deleteButton" data-index="${index}" data-date="${date}">削除</button>
+                </div>
+            `);
+                });
+
+                // 各削除ボタンにクリックイベントを追加
+                $('.deleteButton').on('click', function () {
+                    const indexToDelete = $(this).data('index');
+                    const dateToDelete = $(this).data('date');
+                    deleteRecord(dateToDelete, indexToDelete);
+                });
+            }
+
+            function deleteRecord(date, index) {
+              let fishRecords = JSON.parse(localStorage.getItem('fishRecords')) || [];
+
+              // 指定の日付のデータのインデックスを再計算し、正確に削除
+              const actualIndex = fishRecords.findIndex((record, i) => record.date === date && fishRecords.filter(r => r.date === date).indexOf(record) === index);
+
+              if (actualIndex !== -1) {
+                  fishRecords.splice(actualIndex, 1); // 指定のインデックスで削除
+                  localStorage.setItem('fishRecords', JSON.stringify(fishRecords));
+                  alert("データが削除されました");
+
+                  displayData(date); // 現在の表示を更新
+                  generateCalendar(); // カレンダーを更新
+              } else {
+                  console.error("削除対象のデータが見つかりませんでした。");
+              }
+          }
+          
+        });
+
+    </script>
+
+</body>
+
+</html>
